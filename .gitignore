@@ -133,3 +133,5 @@ data/
 .idea/
 examples/
 .nfs00000001c0f427bc000001e0
+plots/
+.vscode/launch.json

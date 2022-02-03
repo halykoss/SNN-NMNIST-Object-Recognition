@@ -58,7 +58,7 @@ train_dataloader = DataLoader(
 
 def plot_with_box(frames, label, with_bb=True, img_name='video.gif'):
     list_frames = []
-
+    label = label[0]
     for img in range(len(frames)):
         float_img = frames[img][1] - frames[img][0]
         try:
