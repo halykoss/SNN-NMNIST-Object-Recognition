@@ -112,9 +112,6 @@ recalls = []
 # test(model, DEVICE, loss_fn, test_dataloader)
 test_loss, precision, recall, accuracy = 0.0, 0.0, 0.0, 0.0
 
-test_loss, precision, recall, accuracy = test(
-    model, DEVICE, loss_fn, test_dataloader, threshold=args.threshold)
-
 for epoch in range(args.epochs):
     training_loss, mean_loss = train(model, DEVICE, train_dataloader, loss_fn, optimizer, epoch, test_loss, precision,
                                      recall, accuracy, max_epochs=args.epochs)

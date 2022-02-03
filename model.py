@@ -102,8 +102,8 @@ class ConvNet(torch.nn.Module):
         # Object detecti
         x = torch.stack(voltages)
         y_hat, _ = torch.max(x, 0)
-        log_probs = F.log_softmax(y_hat, dim=1)
         # Classification
         x_c = torch.stack(voltages_class)
         y_hat_c, _ = torch.max(x_c, 0)
-        return log_probs, y_hat_c
+        log_probs = F.log_softmax(y_hat_c, dim=1)
+        return y_hat, log_probs
