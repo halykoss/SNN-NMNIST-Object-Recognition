@@ -56,7 +56,7 @@ class VNMNISTDataset(Dataset):
         size_w = (x, self.width - size - x)
         size_h = (y, self.height - size - y)
         frames = np.pad(frames, ((0, 0), (0, 0), size_h, size_w), 'minimum')
-        # , label
+
         return frames, (torch.from_numpy(np.asarray([x, y, x + size, y + size])), label)
 
     def __len__(self):

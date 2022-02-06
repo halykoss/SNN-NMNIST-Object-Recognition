@@ -24,7 +24,7 @@ class SNNState(NamedTuple):
 
 
 class ConvNet(torch.nn.Module):
-    def __init__(self, input_features, hidden_features, num_channels=2, dt=0.001,
+    def __init__(self, input_features, hidden_features, hidden_features_c, num_channels=2, dt=0.001,
                  method="super", alpha=100):
         super(ConvNet, self).__init__()
 
@@ -34,7 +34,7 @@ class ConvNet(torch.nn.Module):
         self.output_features_cl = 10
 
         # Common stream
-        self.conv1 = torch.nn.Conv2d(num_channels, 30, 7, 1)
+        self.conv1 = torch.nn.Conv2d(num_channels, 30, 5, 1)
         self.conv2 = torch.nn.Conv2d(30, 70, 5, 1)
         self.flatten = torch.nn.Flatten()
 
@@ -45,7 +45,7 @@ class ConvNet(torch.nn.Module):
         self.l1 = LIFRecurrentCell(
             input_features,
             hidden_features,
-            p=LIFParameters(alpha=10, v_th=torch.tensor(0.4)),
+            p=LIFParameters(alpha=10, v_th=torch.tensor(0.5)),
             dt=dt
         )
 
@@ -58,13 +58,13 @@ class ConvNet(torch.nn.Module):
 
         self.cl_l1 = LIFRecurrentCell(
             input_features,
-            hidden_features * 2,
-            p=LIFParameters(alpha=10, v_th=torch.tensor(0.4)),
+            hidden_features_c,
+            p=LIFParameters(alpha=10, v_th=torch.tensor(0.5)),
             dt=dt
         )
 
         self.cl_fc_out = torch.nn.Linear(
-            hidden_features * 2, self.output_features_cl, bias=False)
+            hidden_features_c, self.output_features_cl, bias=False)
 
         self.cl_out = LICell(dt=dt)
 

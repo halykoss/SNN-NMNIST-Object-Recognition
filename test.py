@@ -3,6 +3,8 @@ import imageio
 import cv2
 from torch.utils.data import DataLoader
 from VNMNISTDataset import VNMNISTDataset
+from model import ConvNet, Model
+
 import torch
 import numpy as np
 
@@ -15,7 +17,7 @@ from argparse import ArgumentParser
 
 torch.manual_seed(1234)
 
-dirName = 'examples/'
+dirName = 'generated/'
 if not os.path.exists(dirName):
     os.makedirs(dirName)
     print("Directory ", dirName,  " Created!")
@@ -62,7 +64,7 @@ train_dataloader = DataLoader(
     train_set, batch_size=args.batch_size, shuffle=True)
 
 
-def plot_with_box(frames, label, value, with_bb=True, img_name='video.gif'):
+def plot_with_box(frames, label, label_hat, value, with_bb=True, img_name='video.gif'):
     list_frames = []
     label = label[0]
     for img in range(len(frames)):
@@ -78,25 +80,47 @@ def plot_with_box(frames, label, value, with_bb=True, img_name='video.gif'):
         img_rgb = cv2.cvtColor(threshed, cv2.COLOR_GRAY2RGB)
         start_point = (int(label[0]), int(label[1]))
         end_point = (int(label[2]), int(label[3]))
-        color = (0, 0, 255)
+        start_point_hat = (int(label_hat[0]), int(label_hat[1]))
+        end_point_hat = (int(label_hat[2]), int(label_hat[3]))
+        color = (0, 128, 0)
+        color_hat = (0, 0, 255)
         if with_bb:
+            cv2.rectangle(img_rgb, start_point_hat,
+                          end_point_hat, color_hat, 1)
             cv2.rectangle(img_rgb, start_point, end_point, color, 1)
             displace_y = (
                 int(label[1])-3) if (int(label[1]) - 10 > 0) else (int(label[3]) + 10)
-            cv2.putText(img_rgb, 'Val.: ' + str(value), (int(label[0]), displace_y),
-                        cv2.QT_FONT_NORMAL, .3, color, 1, cv2.LINE_AA)
+            cv2.putText(img_rgb, 'Pred.: ' + str(value), (int(label[0]), displace_y),
+                        cv2.QT_FONT_NORMAL, .3, (36, 255, 12), 1, cv2.LINE_AA)
         list_frames.append(cv2.cvtColor(img_rgb, cv2.COLOR_BGR2RGB))
 
     imageio.mimsave(img_name, list_frames, fps=10)
 
 
+snn = ConvNet(
+    input_features=10080,
+    hidden_features=500,
+    dt=0.01
+)
+
+DEVICE = torch.device(
+    "cuda") if torch.cuda.is_available() else torch.device("cpu")
+
+snn.load_state_dict(torch.load("results/snn.pth"), strict=False)
+
+model = Model(
+    snn=snn
+).to(DEVICE)
+
 for i in range(100):
     idx = randrange(60000)
-    imgs, label = train_set[idx]
-    plot_with_box(imgs, label, label[1], with_bb=True,
-                  img_name='./examples/ex-' + str(i) + '.gif')
+    imgs, (label, _) = train_set[idx]
+    new_label, pred_value = model(torch.tensor(
+        imgs).unsqueeze(0).float().to(DEVICE))
+    pred = pred_value.argmax(
+        dim=1, keepdim=True
+    ).cpu().numpy()[0][0]
+    plot_with_box(imgs, new_label, label, pred, with_bb=True,
+                  img_name='./generated/ex-' + str(i) + '.gif')
 
-# cv2_imshow(plot_with_box(imgs, label))
-# with open('./examples/ex-' + str(i) +'.gif','rb') as f:
-#     display(Image(data=f.read(), format='png'))
 print("Done!")

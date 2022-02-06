@@ -24,7 +24,7 @@ def bb_intersection_over_union(boxA, boxB):
     return iou
 
 
-def train(model, device, train_loader, loss_fn, optimizer, epoch, test_loss, precision, recall, accuracy, max_epochs):
+def train(model, device, train_loader, loss_fn, loss_fn_c, optimizer, epoch, test_loss, precision, topk, accuracy, max_epochs):
     model.train()
     losses = []
     with tqdm(train_loader) as pbar:
@@ -36,7 +36,7 @@ def train(model, device, train_loader, loss_fn, optimizer, epoch, test_loss, pre
             optimizer.zero_grad()
             output, output_c = model(data)
             loss = loss_fn(output, target) + \
-                label_smoothing_loss(output_c, target_c)
+                loss_fn_c(output_c, target_c)
             loss.backward()
             optimizer.step()
             losses.append(loss.item())
@@ -44,7 +44,7 @@ def train(model, device, train_loader, loss_fn, optimizer, epoch, test_loss, pre
                 {
                     'Train loss (in progress)': loss.item(),
                     'Precision (test set)': precision,
-                    'Recall (test set)': recall,
+                    'Top-3 accuracy (test set)': topk,
                     'Loss (test set)': test_loss,
                     'Accuracy (test set)': accuracy
                 }
@@ -54,7 +54,7 @@ def train(model, device, train_loader, loss_fn, optimizer, epoch, test_loss, pre
     return losses, mean_loss
 
 
-def test(model, device, loss_fn, test_loader, threshold=.5):
+def test(model, device, loss_fn, loss_fn_c, test_loader, threshold=.5):
     model.eval()
     test_loss = 0
     true_positive = 0
@@ -62,6 +62,7 @@ def test(model, device, loss_fn, test_loader, threshold=.5):
     accuracy = 0
     losses = []
     correct = 0
+    correct_k = 0
     with torch.no_grad():
         for idx, (data, target) in enumerate(test_loader):
             data, target_c, target = data.float().to(
@@ -69,16 +70,21 @@ def test(model, device, loss_fn, test_loader, threshold=.5):
             output, output_c = model(data)
             # get the loss
             loss = loss_fn(output, target) + \
-                label_smoothing_loss(output_c, target_c)
+                loss_fn_c(output_c, target_c)
             # get the index of the max log-probability
             pred = output_c.argmax(
                 dim=1, keepdim=True
             )
+            _, tk = output_c.topk(3, dim=1)
+
+            correct_k += sum(1 for o, p in zip(target_c, tk)
+                             if o.cpu().numpy() in p.cpu().numpy())
+
             correct += pred.eq(target_c.view_as(pred)).sum().item()
             # Calculating precision and recall
             for bb1, bb2 in zip(output, target):
                 IoU = bb_intersection_over_union(bb1, bb2)
-                if IoU > 0.5:
+                if IoU > threshold:
                     true_positive += 1
                 else:
                     false_negative += 1
@@ -87,13 +93,13 @@ def test(model, device, loss_fn, test_loader, threshold=.5):
 
     test_loss = np.mean(losses)
     precision = true_positive / len(test_loader.dataset)
-    recall = true_positive / (true_positive + false_negative)
+    topk = correct_k / len(test_loader.dataset)
     accuracy = correct / len(test_loader.dataset)
 
-    return test_loss, precision, recall, accuracy
+    return test_loss, precision, topk, accuracy
 
 
-def label_smoothing_loss(y_hat, y, alpha=0.2):
+def label_smoothing_loss(y_hat, y, alpha=0.1):
     xent = F.nll_loss(y_hat, y, reduction="none")
     KL = -y_hat.mean(dim=1)
     loss = (1 - alpha) * xent + alpha * KL

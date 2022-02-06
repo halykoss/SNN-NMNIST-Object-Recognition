@@ -9,7 +9,7 @@ import tonic.transforms as transforms
 
 from VNMNISTDataset import VNMNISTDataset
 from model import Model, ConvNet
-from util import train, test
+from util import label_smoothing_loss, train, test
 
 import os
 from argparse import ArgumentParser
@@ -17,7 +17,7 @@ from argparse import ArgumentParser
 
 torch.manual_seed(1234)
 
-dirName = 'plots/'
+dirName = 'results/'
 if not os.path.exists(dirName):
     os.makedirs(dirName)
     print("Directory ", dirName,  " Created!")
@@ -32,14 +32,18 @@ parser.add_argument("--resize-max", help="[DATASET] Max resize image dim",
                     default=42, type=int)
 parser.add_argument("--resize-min", help="[DATASET] Min resize image dim",
                     default=34, type=int)
+parser.add_argument("--dataset-aug", help="[DATASET] Dataset augmentation multiplicator",
+                    default=1.3, type=float)
 parser.add_argument(
     "--lr", help="[NETWORK] learning rate", default=0.002, type=float)
 parser.add_argument(
     "--epochs", help="[NETWORK] number of epochs", default=5, type=int)
 parser.add_argument(
-    "--input-ly", help="[NETWORK] Input after convolutions", default=3430, type=int)
+    "--input-layer", help="[NETWORK] Input after convolutions", default=3430, type=int)
 parser.add_argument(
-    "--hidden-ly", help="[NETWORK] Size of the hidden layer", default=500, type=int)
+    "--hidden-layer", help="[NETWORK] Size of the hidden layer", default=500, type=int)
+parser.add_argument(
+    "--hidden-layer-c", help="[NETWORK] Size of the hidden layer for classification", default=800, type=int)
 parser.add_argument(
     "--batch-size", help="[NETWORK] batch size", default=64, type=int)
 parser.add_argument("--threshold", help="[Detection] IoU threshold",
@@ -68,14 +72,16 @@ train_set = VNMNISTDataset(
     train=True,
     transform=transform,
     dim=(args.img_dim, args.img_dim),
-    resize=(args.resize_max, args.resize_min)
+    resize=(args.resize_max, args.resize_min),
+    mult=args.dataset_aug
 )
 
 test_set = VNMNISTDataset(
     train=False,
     transform=transform,
     dim=(args.img_dim, args.img_dim),
-    resize=(args.resize_max, args.resize_min)
+    resize=(args.resize_max, args.resize_min),
+    mult=args.dataset_aug
 )
 
 train_dataloader = DataLoader(
@@ -90,16 +96,21 @@ DEVICE = torch.device(
 
 print("Model to {}...".format(DEVICE), end=" ")
 
+snn = ConvNet(
+    input_features=args.input_layer,
+    hidden_features=args.hidden_layer,
+    hidden_features_c=args.hidden_layer_c,
+    dt=0.01
+)
+
 model = Model(
-    snn=ConvNet(
-        input_features=args.input_ly,
-        hidden_features=args.hidden_ly,
-        dt=0.01
-    )
+    snn=snn
 ).to(DEVICE)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 loss_fn = nn.MSELoss()
+# loss_fn_c = label_smoothing_loss se lo rimetto devo mette lob_prob come output e los_softmax
+loss_fn_c = label_smoothing_loss
 
 print("Done!")
 
@@ -108,39 +119,47 @@ mean_losses = []
 test_losses = []
 accuracies = []
 precisions = []
-recalls = []
+top_ks = []
 # test(model, DEVICE, loss_fn, test_dataloader)
-test_loss, precision, recall, accuracy = 0.0, 0.0, 0.0, 0.0
+test_loss, precision, topk, accuracy = 0, 0, 0, 0
 
 for epoch in range(args.epochs):
-    training_loss, mean_loss = train(model, DEVICE, train_dataloader, loss_fn, optimizer, epoch, test_loss, precision,
-                                     recall, accuracy, max_epochs=args.epochs)
-    test_loss, precision, recall, accuracy = test(
-        model, DEVICE, loss_fn, test_dataloader, threshold=args.threshold)
+    training_loss, mean_loss = train(model, DEVICE, train_dataloader, loss_fn, loss_fn_c, optimizer, epoch, test_loss, precision,
+                                     topk, accuracy, max_epochs=args.epochs)
+    test_loss, precision, topk, accuracy = test(
+        model, DEVICE, loss_fn, loss_fn_c, test_dataloader, threshold=args.threshold)
     training_losses += training_loss
     mean_losses.append(mean_loss)
     test_losses.append(test_loss)
     accuracies.append(accuracy)
     precisions.append(precision)
-    recalls.append(recall)
+    top_ks.append(topk)
+    print("Mean train loss: {:.2f} , Test loss: {}".format(
+        mean_loss, test_loss))
+    print("Precision: {:.2f}".format(precision))
+    print("Top-3 accuracy: {:.2f}".format(topk))
+    print("Accuracy: {:.2f}".format(accuracy))
 
 df = pd.DataFrame(training_losses, columns=['Training loss'])
 fig = px.line(df, markers=False)
-fig.write_html('plots/training_losses.html', auto_open=False)
+fig.write_html(dirName + 'training_losses.html', auto_open=False)
 
 df = pd.DataFrame(
     {'Mean Train Loss': mean_losses,
      'Mean Test Loss': test_losses
      })
 fig = px.line(df, markers=False)
-fig.write_html('plots/train-test.html', auto_open=False)
+fig.write_html(dirName + 'train-test.html', auto_open=False)
 
 df = pd.DataFrame(
     {'Accuracy': accuracies,
      'Precision': precisions,
-     'Recall': recalls
+     'Top-3 accuracy:': top_ks
      })
 fig = px.line(df, markers=False)
-fig.write_html('plots/apr.html', auto_open=False)
+fig.write_html(dirName + 'apr.html', auto_open=False)
+
+torch.save(model.state_dict(), dirName + 'model.pth')
+torch.save(snn.state_dict(), dirName + 'snn.pth')
 
 print(df)

@@ -134,4 +134,6 @@ data/
 examples/
 .nfs00000001c0f427bc000001e0
 plots/
+results/
+generated/
 .vscode/launch.json
