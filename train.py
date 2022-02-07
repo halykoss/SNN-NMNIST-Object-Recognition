@@ -1,3 +1,9 @@
+'''
+
+This script is used to train the SNN model
+
+'''
+
 import torch
 from torch.utils.data import DataLoader
 import torch.nn as nn
@@ -17,6 +23,7 @@ from argparse import ArgumentParser
 
 torch.manual_seed(1234)
 
+# Directory where files will be stored
 dirName = 'results/'
 if not os.path.exists(dirName):
     os.makedirs(dirName)
@@ -39,11 +46,11 @@ parser.add_argument(
 parser.add_argument(
     "--epochs", help="[NETWORK] number of epochs", default=5, type=int)
 parser.add_argument(
-    "--input-layer", help="[NETWORK] Input after convolutions", default=3430, type=int)
+    "--input-layer", help="[NETWORK] Input after convolutions", default=10080, type=int)
 parser.add_argument(
     "--hidden-layer", help="[NETWORK] Size of the hidden layer", default=500, type=int)
 parser.add_argument(
-    "--hidden-layer-c", help="[NETWORK] Size of the hidden layer for classification", default=800, type=int)
+    "--hidden-layer-c", help="[NETWORK] Size of the hidden layer for classification", default=1000, type=int)
 parser.add_argument(
     "--batch-size", help="[NETWORK] batch size", default=64, type=int)
 parser.add_argument("--threshold", help="[Detection] IoU threshold",
@@ -59,6 +66,7 @@ print("")
 
 print("Loading the dataset...", end=' ')
 
+# Part regarding dataset
 sensor_size = tonic.datasets.NMNIST.sensor_size
 
 denoise_transform = tonic.transforms.Denoise(filter_time=10000)
@@ -91,6 +99,8 @@ test_dataloader = DataLoader(
 
 print("Done!")
 
+# Part regarding the network
+
 DEVICE = torch.device(
     "cuda") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -107,10 +117,11 @@ model = Model(
     snn=snn
 ).to(DEVICE)
 
-optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+
 loss_fn = nn.MSELoss()
-# loss_fn_c = label_smoothing_loss se lo rimetto devo mette lob_prob come output e los_softmax
 loss_fn_c = label_smoothing_loss
+
+optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
 print("Done!")
 
@@ -120,26 +131,39 @@ test_losses = []
 accuracies = []
 precisions = []
 top_ks = []
-# test(model, DEVICE, loss_fn, test_dataloader)
+
 test_loss, precision, topk, accuracy = 0, 0, 0, 0
 
+# Training loop
 for epoch in range(args.epochs):
-    training_loss, mean_loss = train(model, DEVICE, train_dataloader, loss_fn, loss_fn_c, optimizer, epoch, test_loss, precision,
-                                     topk, accuracy, max_epochs=args.epochs)
+
+    training_loss, mean_loss = train(
+        model, DEVICE, train_dataloader,
+        loss_fn, loss_fn_c, optimizer,
+        epoch, test_loss, precision,
+        topk, accuracy, max_epochs=args.epochs
+    )
+
     test_loss, precision, topk, accuracy = test(
-        model, DEVICE, loss_fn, loss_fn_c, test_dataloader, threshold=args.threshold)
+        model, DEVICE, loss_fn,
+        loss_fn_c, test_dataloader, threshold=args.threshold
+    )
+
     training_losses += training_loss
+
     mean_losses.append(mean_loss)
     test_losses.append(test_loss)
     accuracies.append(accuracy)
     precisions.append(precision)
     top_ks.append(topk)
+
     print("Mean train loss: {:.2f} , Test loss: {}".format(
         mean_loss, test_loss))
     print("Precision: {:.2f}".format(precision))
     print("Top-3 accuracy: {:.2f}".format(topk))
     print("Accuracy: {:.2f}".format(accuracy))
 
+# Results plotting and formatting
 df = pd.DataFrame(training_losses, columns=['Training loss'])
 fig = px.line(df, markers=False)
 fig.write_html(dirName + 'training_losses.html', auto_open=False)
@@ -159,6 +183,7 @@ df = pd.DataFrame(
 fig = px.line(df, markers=False)
 fig.write_html(dirName + 'apr.html', auto_open=False)
 
+# Saving the model
 torch.save(model.state_dict(), dirName + 'model.pth')
 torch.save(snn.state_dict(), dirName + 'snn.pth')
 

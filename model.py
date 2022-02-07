@@ -4,7 +4,6 @@ import torch.nn.functional as F
 
 from norse.torch import LIFParameters, LIFState
 from norse.torch.module.lif import LIFCell, LIFRecurrentCell
-# Notice the difference between "LIF" (leaky integrate-and-fire) and "LI" (leaky integrator)
 from norse.torch import LICell, LIState
 
 
@@ -45,7 +44,7 @@ class ConvNet(torch.nn.Module):
         self.l1 = LIFRecurrentCell(
             input_features,
             hidden_features,
-            p=LIFParameters(alpha=10, v_th=torch.tensor(0.5)),
+            p=LIFParameters(alpha=10, v_th=torch.tensor(0.4)),
             dt=dt
         )
 
@@ -55,11 +54,10 @@ class ConvNet(torch.nn.Module):
         self.out = LICell(dt=dt)
 
         # Classification stream
-
         self.cl_l1 = LIFRecurrentCell(
             input_features,
             hidden_features_c,
-            p=LIFParameters(alpha=10, v_th=torch.tensor(0.5)),
+            p=LIFParameters(alpha=10, v_th=torch.tensor(0.4)),
             dt=dt
         )
 

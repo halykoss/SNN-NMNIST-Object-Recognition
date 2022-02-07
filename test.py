@@ -1,22 +1,24 @@
-from random import randrange
-import imageio
-import cv2
-from torch.utils.data import DataLoader
+'''
+This script is used for visualization over model results
+'''
+
 from VNMNISTDataset import VNMNISTDataset
 from model import ConvNet, Model
+from util import plot_with_box
 
 import torch
-import numpy as np
+from random import randrange
+from torch.utils.data import DataLoader
 
 import os
 import tonic
 import tonic.transforms as transforms
 
-
 from argparse import ArgumentParser
 
 torch.manual_seed(1234)
 
+# Where results will be stored
 dirName = 'generated/'
 if not os.path.exists(dirName):
     os.makedirs(dirName)
@@ -34,10 +36,16 @@ parser.add_argument("--resize-max", help="Max resize image dim",
                     default=42, type=int)
 parser.add_argument("--resize-min", help="Min resize image dim",
                     default=34, type=int)
+parser.add_argument(
+    "--input-layer", help="[NETWORK] Input after convolutions", default=10080, type=int)
+parser.add_argument(
+    "--hidden-layer", help="[NETWORK] Size of the hidden layer", default=500, type=int)
+parser.add_argument(
+    "--hidden-layer-c", help="[NETWORK] Size of the hidden layer for classification", default=1000, type=int)
 
 args = parser.parse_args()
 
-
+# Regarding dataset
 sensor_size = tonic.datasets.NMNIST.sensor_size
 
 denoise_transform = tonic.transforms.Denoise(filter_time=10000)
@@ -63,43 +71,13 @@ test_set = VNMNISTDataset(
 train_dataloader = DataLoader(
     train_set, batch_size=args.batch_size, shuffle=True)
 
-
-def plot_with_box(frames, label, label_hat, value, with_bb=True, img_name='video.gif'):
-    list_frames = []
-    label = label[0]
-    for img in range(len(frames)):
-        float_img = frames[img][1] - frames[img][0]
-        try:
-            float_img = (float_img - np.min(float_img)) / \
-                (np.max(float_img) - np.min(float_img))
-        except:
-            float_img = 0
-        im = np.array(float_img * 255, dtype=np.uint8)
-        threshed = cv2.adaptiveThreshold(
-            im, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 3, 0)
-        img_rgb = cv2.cvtColor(threshed, cv2.COLOR_GRAY2RGB)
-        start_point = (int(label[0]), int(label[1]))
-        end_point = (int(label[2]), int(label[3]))
-        start_point_hat = (int(label_hat[0]), int(label_hat[1]))
-        end_point_hat = (int(label_hat[2]), int(label_hat[3]))
-        color = (0, 128, 0)
-        color_hat = (0, 0, 255)
-        if with_bb:
-            cv2.rectangle(img_rgb, start_point_hat,
-                          end_point_hat, color_hat, 1)
-            cv2.rectangle(img_rgb, start_point, end_point, color, 1)
-            displace_y = (
-                int(label[1])-3) if (int(label[1]) - 10 > 0) else (int(label[3]) + 10)
-            cv2.putText(img_rgb, 'Pred.: ' + str(value), (int(label[0]), displace_y),
-                        cv2.QT_FONT_NORMAL, .3, (36, 255, 12), 1, cv2.LINE_AA)
-        list_frames.append(cv2.cvtColor(img_rgb, cv2.COLOR_BGR2RGB))
-
-    imageio.mimsave(img_name, list_frames, fps=10)
+# Regarding model
 
 
 snn = ConvNet(
-    input_features=10080,
-    hidden_features=500,
+    input_features=args.input_layer,
+    hidden_features=args.hidden_layer,
+    hidden_features_c=args.hidden_layer_c,
     dt=0.01
 )
 
@@ -112,6 +90,7 @@ model = Model(
     snn=snn
 ).to(DEVICE)
 
+# Generating 100 random spiking sequence videos
 for i in range(100):
     idx = randrange(60000)
     imgs, (label, _) = train_set[idx]
