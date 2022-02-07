@@ -154,4 +154,3 @@ dependencies:
     - wcwidth==0.2.5
     - webencodings==0.5.1
     - widgetsnbextension==3.5.2
-prefix: /homes/fpennino/miniconda3/envs/projekt
