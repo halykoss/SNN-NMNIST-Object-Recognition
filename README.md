@@ -1,6 +1,6 @@
-# SNN-NMNIST-Object-Detection
+# SNN-NMNIST-Object-Recognition
 
-An object detection model for NMNIST larger video frame.
+An object recognition model for NMNIST larger video frame.
 
 ![Image example](/img/home.gif "Results example")
 

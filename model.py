@@ -66,7 +66,7 @@ class ConvNet(torch.nn.Module):
 
         self.cl_out = LICell(dt=dt)
 
-    def object_recognition_stream(self, z, s1, so):
+    def object_detection_stream(self, z, s1, so):
         z1, s1 = self.l1(z, s1)
         z1 = self.fc_out(z1)
         vo, so = self.out(z1, so)
@@ -93,11 +93,11 @@ class ConvNet(torch.nn.Module):
             z = torch.nn.functional.max_pool2d(z, 3, 3)
             z, s2 = self.lif1(z, s2)
             z = self.flatten(z)
-            vo, s1, so = self.object_recognition_stream(z, s1, so)
+            vo, s1, so = self.object_detection_stream(z, s1, so)
             voltages += [vo]
             vo_c, s1_c, so_c = self.classification_stream(z, s1_c, so_c)
             voltages_class += [vo_c]
-        # Object detecti
+        # Object detection
         x = torch.stack(voltages)
         y_hat, _ = torch.max(x, 0)
         # Classification
