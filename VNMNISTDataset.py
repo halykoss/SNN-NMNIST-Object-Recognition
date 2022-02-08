@@ -1,6 +1,5 @@
 from numpy import random
 from torch.utils.data import Dataset
-# from skimage.transform import resize
 import tonic
 import numpy as np
 import cv2
@@ -22,7 +21,7 @@ class VNMNISTDataset(Dataset):
 
         self.dim = int(mult * len(self.dataset))
         self.width, self.height = dim
-        # How big eacg image should be
+        # How big each image should be
         self.img_size = np.random.randint(
             high=int(resize[0]),
             low=int(resize[1]),
