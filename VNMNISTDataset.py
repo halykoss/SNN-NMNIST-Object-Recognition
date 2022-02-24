@@ -4,7 +4,7 @@ import tonic
 import numpy as np
 import cv2
 import torch
-
+import os
 
 class VNMNISTDataset(Dataset):
     '''
@@ -14,20 +14,21 @@ class VNMNISTDataset(Dataset):
     Starting image can be even randomly resized. 
     '''
 
-    def __init__(self, train=True, transform=None, dim=(50, 50), resize=(42, 34), mult=1.3):
-        self.dataset = tonic.datasets.NMNIST(save_to='./data',
+    def __init__(self, train=True, transform=None, dim=(50, 50), resize=42, mult=1.3):
+        self.dataset = tonic.datasets.NMNIST(save_to=os.path.abspath('data'),
                                              train=train,
                                              transform=transform)
 
         self.dim = int(mult * len(self.dataset))
         self.width, self.height = dim
-        # How big each image should be
-        self.img_size = np.random.randint(
-            high=int(resize[0]),
-            low=int(resize[1]),
-            size=self.dim
-        )
-
+        if resize:
+            # How big each image should be
+            self.img_size = np.random.randint(
+                high=int(resize),
+                low=int(34),
+                size=self.dim
+            )
+        self.resize = resize
         # Where images will be place
         self.coord = {
             "x": random.randint(self.width, size=self.dim),  # - self.xs
@@ -36,17 +37,18 @@ class VNMNISTDataset(Dataset):
 
     def augment_frames(self, idx):
         frames, label = self.dataset[idx]
-        size = self.img_size[idx]
-        img_outter = []
-        # Image resizing
-        for frame in frames:
-            img_inner = []
-            for idx_img in [0, 1]:
-                resized = cv2.resize(
-                    frame[idx_img], (size, size), interpolation=cv2.INTER_NEAREST)
-                img_inner.append(resized)
-            img_outter.append(img_inner)
-        frames = np.array(img_outter)
+        size = self.img_size[idx] if self.resize else 34
+        if self.resize:
+            img_outter = []
+            # Image resizing
+            for frame in frames:
+                img_inner = []
+                for idx_img in [0, 1]:
+                    resized = cv2.resize(
+                        frame[idx_img], (size, size), interpolation=cv2.INTER_NEAREST)
+                    img_inner.append(resized)
+                img_outter.append(img_inner)
+            frames = np.array(img_outter)
         # Constraint checking
         if self.coord["x"][idx] - size < 0:
             x = 0
@@ -65,9 +67,9 @@ class VNMNISTDataset(Dataset):
         # New image generation
         size_w = (x, self.width - size - x)
         size_h = (y, self.height - size - y)
-        frames = np.pad(frames, ((0, 0), (0, 0), size_h, size_w), 'minimum')
+        new_frames = np.pad(frames, ((0, 0), (0, 0), size_h, size_w), 'minimum')
 
-        return frames, (torch.from_numpy(np.asarray([x, y, x + size, y + size])), label)
+        return new_frames, (torch.from_numpy(np.asarray([x, y, x + size, y + size])), label)
 
     def __len__(self):
         return self.dim

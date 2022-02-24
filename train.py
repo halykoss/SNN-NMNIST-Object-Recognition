@@ -35,6 +35,10 @@ parser.add_argument(
     "--n-frames", help="[TONIC] number of frames", default=12, type=int)
 parser.add_argument("--img-dim", help="[DATASET] image dimension (w=h)",
                     default=84, type=int)
+parser.add_argument('--no-resize', action='store_true',
+                    help='[DATASET] No frame resize')
+parser.add_argument('--random-noise', action='store_true',
+                    help='[NETWORK] Sum random value on the voltages')
 parser.add_argument("--resize-max", help="[DATASET] Max resize image dim",
                     default=42, type=int)
 parser.add_argument("--resize-min", help="[DATASET] Min resize image dim",
@@ -75,12 +79,13 @@ frame_transform = transforms.ToFrame(
 
 transform = transforms.Compose([denoise_transform, frame_transform])
 
+resize = False if args.no_resize else args.resize_max
 
 train_set = VNMNISTDataset(
     train=True,
     transform=transform,
     dim=(args.img_dim, args.img_dim),
-    resize=(args.resize_max, args.resize_min),
+    resize=resize,
     mult=args.dataset_aug
 )
 
@@ -88,7 +93,7 @@ test_set = VNMNISTDataset(
     train=False,
     transform=transform,
     dim=(args.img_dim, args.img_dim),
-    resize=(args.resize_max, args.resize_min),
+    resize=resize,
     mult=args.dataset_aug
 )
 
@@ -107,6 +112,7 @@ DEVICE = torch.device(
 print("Model to {}...".format(DEVICE), end=" ")
 
 snn = ConvNet(
+    args=args,
     input_features=args.input_layer,
     hidden_features=args.hidden_layer,
     hidden_features_c=args.hidden_layer_c,

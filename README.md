@@ -22,8 +22,7 @@ $ python3 main.py --img-dim 128 --resize-max 58
 If you want to train a model you can run 
 
 ```bash
-$ python3 train.py --img-dim 128 --input-layer 10080 --resize-max 58 --threshold 0.5 --lr 0.0002 \
-    --dataset-aug 2.0 --batch-size 256
+$ python3 train.py --img-dim 128 --input-layer 10080 --no-resize --threshold 0.5 --lr 0.002 --dataset-aug 2.0 --batch-size 256 --random-noise --epochs 20
 ```
 
 If you want to visualize model prediction you can run 

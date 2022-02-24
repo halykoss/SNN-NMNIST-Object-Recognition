@@ -32,10 +32,10 @@ parser.add_argument(
 parser.add_argument("--img-dim", help="image dimension (w=h)",
                     default=64, type=int)
 parser.add_argument("--batch-size", help="batch size", default=64, type=int)
+parser.add_argument('--no-resize', action='store_true',
+                    help='[DATASET] No frame resize')
 parser.add_argument("--resize-max", help="Max resize image dim",
                     default=42, type=int)
-parser.add_argument("--resize-min", help="Min resize image dim",
-                    default=34, type=int)
 parser.add_argument(
     "--input-layer", help="[NETWORK] Input after convolutions", default=10080, type=int)
 parser.add_argument(
@@ -54,18 +54,20 @@ frame_transform = transforms.ToFrame(
 
 transform = transforms.Compose([denoise_transform, frame_transform])
 
+resize = False if args.no_resize else args.resize_max
+
 train_set = VNMNISTDataset(
     train=True,
     transform=transform,
     dim=(args.img_dim, args.img_dim),
-    resize=(args.resize_max, args.resize_min)
+    resize=resize
 )
 
 test_set = VNMNISTDataset(
     train=False,
     transform=transform,
     dim=(args.img_dim, args.img_dim),
-    resize=(args.resize_max, args.resize_min)
+    resize=resize
 )
 
 train_dataloader = DataLoader(

@@ -23,7 +23,7 @@ class SNNState(NamedTuple):
 
 
 class ConvNet(torch.nn.Module):
-    def __init__(self, input_features, hidden_features, hidden_features_c, num_channels=2, dt=0.001,
+    def __init__(self, input_features, hidden_features, hidden_features_c, args=None, num_channels=2, dt=0.001,
                  method="super", alpha=100):
         super(ConvNet, self).__init__()
 
@@ -31,7 +31,7 @@ class ConvNet(torch.nn.Module):
         self.hidden_features = hidden_features
         self.output_features = 4
         self.output_features_cl = 10
-
+        self.args = args
         # Common stream
         self.conv1 = torch.nn.Conv2d(num_channels, 30, 5, 1)
         self.conv2 = torch.nn.Conv2d(30, 70, 5, 1)
@@ -96,6 +96,10 @@ class ConvNet(torch.nn.Module):
             vo, s1, so = self.object_detection_stream(z, s1, so)
             voltages += [vo]
             vo_c, s1_c, so_c = self.classification_stream(z, s1_c, so_c)
+            if self.args != None and self.args.random_noise:
+                vo_c += 0.001 * torch.randn(
+                    x.shape[0], 10, device=x.device
+                )
             voltages_class += [vo_c]
         # Object detection
         x = torch.stack(voltages)
